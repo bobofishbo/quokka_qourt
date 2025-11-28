@@ -61,7 +61,7 @@ web-build/
 # Prisma generated
 **/src/generated/prisma/
 **/src/generated/
-**/prisma/migrations/*.sql
+# Note: Migration files (*.sql) should be committed to track schema changes
 *.dylib.node
 *.so
 *.dll
