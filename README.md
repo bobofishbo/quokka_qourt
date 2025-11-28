@@ -6,7 +6,7 @@ A fullstack mobile application built with React Native (Expo) and Fastify backen
 
 ```
 judge/
-├── ai-judge/          # React Native frontend (Expo)
+├── frontend/           # React Native frontend (Expo)
 ├── backend/           # Fastify + Prisma backend
 └── README.md
 ```
@@ -37,7 +37,7 @@ judge/
 1. **Install dependencies:**
    ```bash
    # Frontend
-   cd ai-judge
+   cd frontend
    npm install
    
    # Backend
@@ -46,7 +46,7 @@ judge/
    ```
 
 2. **Environment variables:**
-   - Copy `.env.example` to `.env` in both `backend/` and `ai-judge/`
+   - Copy `.env.example` to `.env` in both `backend/` and `frontend/`
    - Fill in your actual values (never commit `.env` files!)
 
 3. **Database setup:**
@@ -63,7 +63,7 @@ judge/
    npm run dev
    
    # Frontend (Terminal 2)
-   cd ai-judge
+   cd frontend
    npm start
    # Then press 'i' for iOS or 'a' for Android
    ```

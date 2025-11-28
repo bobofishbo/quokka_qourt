@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "ai-judge",
-    slug: "ai-judge",
+    name: "judge-app",
+    slug: "judge-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
