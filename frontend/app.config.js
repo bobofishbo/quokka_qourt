@@ -48,6 +48,9 @@ export default {
       // Access these via expo-constants: Constants.expoConfig?.extra?.apiUrl
       apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000",
       environment: process.env.EXPO_PUBLIC_ENV || "development",
+      // Supabase configuration
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     },
   },
 };
