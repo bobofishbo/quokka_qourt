@@ -1,14 +1,15 @@
-import { Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useAuth } from '@/contexts/auth-context';
+import { Redirect } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
-export default function Index() {
+export default function OnboardingLayout() {
   const { user, profile, isLoading, isProfileLoading } = useAuth();
 
   // Show loading while checking auth
-  if (isLoading || isProfileLoading) {
+  if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -17,18 +18,31 @@ export default function Index() {
     );
   }
 
-  // Redirect based on auth state
-  if (user) {
-    // If user has no profile, redirect to onboarding
-    if (!profile) {
-      return <Redirect href="/(onboarding)" />;
-    }
-    // If user has profile, redirect to main app
+  // Redirect to sign-in if not authenticated
+  if (!user) {
+    return <Redirect href="/sign-in" />;
+  }
+
+  // Redirect to main app if profile already exists
+  if (profile) {
     return <Redirect href="/(tabs)" />;
   }
 
-  // Not authenticated, redirect to sign-in
-  return <Redirect href="/sign-in" />;
+  // Show loading while checking profile
+  if (isProfileLoading) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <ThemedText style={styles.loadingText}>Loading...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+    </Stack>
+  );
 }
 
 const styles = StyleSheet.create({

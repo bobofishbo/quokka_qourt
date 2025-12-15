@@ -12,16 +12,20 @@ import { ThemedText } from '@/components/themed-text';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading, isProfileLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace('/sign-in');
+    if (!isLoading && !isProfileLoading) {
+      if (!user) {
+        router.replace('/sign-in');
+      } else if (!profile) {
+        router.replace('/(onboarding)');
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, profile, isLoading, isProfileLoading, router]);
 
-  if (isLoading) {
+  if (isLoading || isProfileLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -30,7 +34,7 @@ export default function TabLayout() {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return null; // Will redirect via useEffect
   }
 
@@ -53,6 +57,13 @@ export default function TabLayout() {
         options={{
           title: 'Lawyer',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="briefcase.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
     </Tabs>
