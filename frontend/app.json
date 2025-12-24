@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "judge-app",
-    "slug": "judge-app",
+    "name": "ai-judge",
+    "slug": "ai-judge",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

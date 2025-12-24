@@ -30,7 +30,7 @@ Thumbs.db
 
 # Prisma
 /src/generated/prisma
-# Note: Migration files (*.sql) should be committed to track schema changes
+prisma/migrations/*.sql
 
 # Test files (optional - remove if you want to commit test files)
 test-connection.js

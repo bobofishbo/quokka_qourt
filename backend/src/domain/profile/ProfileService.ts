@@ -55,4 +55,46 @@ export class ProfileService {
 
     return toProfileDomain(profile);
   }
+
+  /**
+   * Update the profile of the currently authenticated user
+   */
+  static async updateProfile(
+    userId: string,
+    updates: {
+      username?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      aliasMode?: boolean;
+      quokkaCitizenshipLevel?: number;
+      quokkaStamps?: string[];
+      quokkaBadges?: string[];
+    }
+  ): Promise<Profile> {
+    // Check if profile exists
+    const existing = await prisma.profiles.findUnique({
+      where: { id: userId },
+    });
+
+    if (!existing) {
+      throw new Error("Profile not found");
+    }
+
+    // Build update data (only include fields that are provided)
+    const updateData: any = {};
+    if (updates.username !== undefined) updateData.username = updates.username;
+    if (updates.displayName !== undefined) updateData.display_name = updates.displayName;
+    if (updates.avatarUrl !== undefined) updateData.avatar_url = updates.avatarUrl;
+    if (updates.aliasMode !== undefined) updateData.alias_mode = updates.aliasMode;
+    if (updates.quokkaCitizenshipLevel !== undefined) updateData.quokka_citizenship_level = updates.quokkaCitizenshipLevel;
+    if (updates.quokkaStamps !== undefined) updateData.quokka_stamps = updates.quokkaStamps;
+    if (updates.quokkaBadges !== undefined) updateData.quokka_badges = updates.quokkaBadges;
+
+    const updated = await prisma.profiles.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    return toProfileDomain(updated);
+  }
 }

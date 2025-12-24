@@ -3,6 +3,7 @@
 import { FastifyInstance } from "fastify";
 import { ProfileService } from "../domain/profile/ProfileService";
 import { authHook } from "../middleware/auth-hook";
+import { CreateProfileRequestDto, UpdateProfileRequestDto, ErrorResponseDto } from "../dto/profile.dto";
 
 export async function profileRoutes(app: FastifyInstance) {
   /**
@@ -18,10 +19,11 @@ export async function profileRoutes(app: FastifyInstance) {
     const profile = await ProfileService.getProfileByUserId(userId);
 
     if (!profile) {
-      return reply.code(404).send({
+      const errorResponse: ErrorResponseDto = {
         error: "PROFILE_NOT_FOUND",
         message: "Profile does not exist yet",
-      });
+      };
+      return reply.code(404).send(errorResponse);
     }
 
     return profile;
@@ -37,19 +39,15 @@ export async function profileRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const userId = request.user!.id; // Safe to use ! since authHook ensures user exists
 
-    const body = request.body as {
-      username: string;
-      displayName?: string;
-      avatarUrl?: string;
-      aliasMode?: boolean;
-    };
+    const body = request.body as CreateProfileRequestDto;
 
-    // Minimal validation here (DTO validation can come later)
+    // Validate required fields
     if (!body.username || body.username.length < 3) {
-      return reply.code(400).send({
+      const errorResponse: ErrorResponseDto = {
         error: "INVALID_USERNAME",
         message: "Username must be at least 3 characters",
-      });
+      };
+      return reply.code(400).send(errorResponse);
     }
 
     try {
@@ -64,10 +62,48 @@ export async function profileRoutes(app: FastifyInstance) {
       return reply.code(201).send(profile);
     } catch (err: any) {
       if (err.message === "Profile already exists") {
-        return reply.code(409).send({
+        const errorResponse: ErrorResponseDto = {
           error: "PROFILE_ALREADY_EXISTS",
           message: "Profile has already been created",
-        });
+        };
+        return reply.code(409).send(errorResponse);
+      }
+
+      throw err; // let Fastify handle unexpected errors
+    }
+  });
+
+  /**
+   * PATCH /profile/me
+   * Update the current user's profile
+   * Protected route - requires authentication
+   */
+  app.patch("/profile/me", {
+    preHandler: authHook, // Apply auth hook before handler
+  }, async (request, reply) => {
+    const userId = request.user!.id; // Safe to use ! since authHook ensures user exists
+
+    const body = request.body as UpdateProfileRequestDto;
+
+    // Validate username if provided
+    if (body.username !== undefined && body.username.length < 3) {
+      const errorResponse: ErrorResponseDto = {
+        error: "INVALID_USERNAME",
+        message: "Username must be at least 3 characters",
+      };
+      return reply.code(400).send(errorResponse);
+    }
+
+    try {
+      const profile = await ProfileService.updateProfile(userId, body);
+      return profile;
+    } catch (err: any) {
+      if (err.message === "Profile not found") {
+        const errorResponse: ErrorResponseDto = {
+          error: "PROFILE_NOT_FOUND",
+          message: "Profile does not exist yet",
+        };
+        return reply.code(404).send(errorResponse);
       }
 
       throw err; // let Fastify handle unexpected errors
