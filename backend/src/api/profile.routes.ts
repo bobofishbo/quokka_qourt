@@ -105,6 +105,13 @@ export async function profileRoutes(app: FastifyInstance) {
         };
         return reply.code(404).send(errorResponse);
       }
+      if (err.message === "Username already taken") {
+        const errorResponse: ErrorResponseDto = {
+          error: "USERNAME_TAKEN",
+          message: "This username is already in use",
+        };
+        return reply.code(409).send(errorResponse);
+      }
 
       throw err; // let Fastify handle unexpected errors
     }

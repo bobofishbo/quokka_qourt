@@ -30,6 +30,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   hasProfile: () => boolean;
   refreshProfile: () => Promise<void>;
+  updateProfile: (updates: { username?: string; displayName?: string; avatarUrl?: string }) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -182,6 +183,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(profileData);
     }
   };
+  const updateProfile = async (updates: {
+    username?: string;
+    displayName?: string;
+    avatarUrl?: string;
+  }): Promise<{ error: string | null }> => {
+    if (!session?.access_token) {
+      return { error: "Not authenticated" };
+    }
+  
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/me`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { error: errorData.message || 'Failed to update profile' };
+      }
+  
+      // Refresh profile after successful update
+      const profileData = await fetchProfile(session);
+      setProfile(profileData);
+      
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return { error: 'Failed to update profile' };
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -196,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         hasProfile,
         refreshProfile,
+        updateProfile,
       }}
     >
       {children}

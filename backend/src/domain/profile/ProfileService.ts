@@ -95,6 +95,19 @@ export class ProfileService {
       data: updateData,
     });
 
+    if (updates.username !== undefined) {
+      // Check if username is already taken by another user
+      const existingWithUsername = await prisma.profiles.findUnique({
+        where: { username: updates.username },
+      });
+      
+      if (existingWithUsername && existingWithUsername.id !== userId) {
+        throw new Error("Username already taken");
+      }
+      
+      updateData.username = updates.username;
+    }
+
     return toProfileDomain(updated);
   }
 }

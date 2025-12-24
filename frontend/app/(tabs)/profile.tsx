@@ -1,12 +1,17 @@
-import { StyleSheet, Image, View, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, Image, View, ScrollView, Pressable, TextInput } from 'react-native';
+import { useState, useEffect } from 'react';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 export default function ProfileScreen() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, updateProfile } = useAuth();
   const tintColor = useThemeColor({}, 'tint');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(profile?.username || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Get initials for avatar placeholder
   const getInitials = () => {
@@ -31,6 +36,34 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const handleUpdateUsername = async () => {
+    if (!newUsername || newUsername.length < 3) {
+      setUpdateError('Username must be at least 3 characters');
+      return;
+    }
+    
+    setIsUpdating(true);
+    setUpdateError(null);
+    
+    const { error } = await updateProfile({ username: newUsername });
+    
+    if (error) {
+      setUpdateError(error);
+      setIsUpdating(false);
+    } else {
+      setIsEditingUsername(false);
+      setIsUpdating(false);
+      setUpdateError(null);
+    }
+  };
+
+  // Update newUsername when profile changes
+  useEffect(() => {
+    if (profile?.username) {
+      setNewUsername(profile.username);
+    }
+  }, [profile?.username]);
 
   return (
     <ThemedView style={styles.container}>
@@ -79,7 +112,53 @@ export default function ProfileScreen() {
             </ThemedText>
             
             <View style={styles.infoCard}>
-              <InfoRow label="Username" value={profile.username || 'Not set'} />
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>Username</ThemedText>
+                {isEditingUsername ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={[styles.usernameInput, { borderColor: tintColor }]}
+                      value={newUsername}
+                      onChangeText={setNewUsername}
+                      autoFocus
+                      editable={!isUpdating}
+                      placeholder="Enter username"
+                    />
+                    <Pressable
+                      onPress={handleUpdateUsername}
+                      disabled={isUpdating}
+                      style={[styles.saveButton, { backgroundColor: tintColor }]}
+                    >
+                      <ThemedText style={styles.saveButtonText}>
+                        {isUpdating ? 'Saving...' : 'Save'}
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setIsEditingUsername(false);
+                        setNewUsername(profile?.username || '');
+                        setUpdateError(null);
+                      }}
+                      disabled={isUpdating}
+                      style={styles.cancelButton}
+                    >
+                      <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.valueContainer}>
+                    <ThemedText style={styles.infoValue}>{profile.username || 'Not set'}</ThemedText>
+                    <Pressable onPress={() => setIsEditingUsername(true)}>
+                      <ThemedText style={[styles.editLink, { color: tintColor }]}>Edit</ThemedText>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+              {updateError && (
+                <View style={styles.errorContainer}>
+                  <ThemedText style={styles.errorText}>{updateError}</ThemedText>
+                </View>
+              )}
               {profile.displayName && (
                 <InfoRow label="Display Name" value={profile.displayName} />
               )}
@@ -295,5 +374,60 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  editContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 2,
+    gap: 8,
+  },
+  usernameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 14,
+    minHeight: 36,
+  },
+  saveButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  valueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 2,
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  editLink: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  errorContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 12,
   },
 });
