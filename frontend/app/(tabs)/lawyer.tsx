@@ -7,6 +7,8 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/contexts/auth-context';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { LawyerSidebar } from '@/components/lawyer-sidebar';
 import Constants from 'expo-constants';
 
 const quokkaImage = require('@/assets/images/quokka.png');
@@ -19,26 +21,157 @@ interface Message {
   timestamp: Date;
 }
 
+interface Conversation {
+  id: string;
+  title: string | null;
+  is_active: boolean;
+  created_at: Date | null;
+  updated_at: Date | null;
+  // Mock data - will be replaced with backend data later
+  lastMessage?: string | null;
+  messageCount?: number;
+}
+
 export default function LawyerScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Hello! I\'m your Quokka lawyer. How can I help you today?',
-      sender: 'quokka',
-      timestamp: new Date(),
-    },
-  ]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const tintColor = useThemeColor({}, 'tint');
+  const textColor = useThemeColor({}, 'text') || '#000';
+
+  // Load conversations on mount
+  useEffect(() => {
+    if (session?.access_token) {
+      loadConversations();
+    }
+  }, [session]);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (currentConversationId && session?.access_token) {
+      loadConversationMessages(currentConversationId);
+    } else if (!currentConversationId) {
+      // Show welcome message when no conversation is selected
+      setMessages([{
+        id: 'welcome',
+        text: 'Hello! I\'m your Quokka lawyer. Start a new conversation or select an existing one to continue.',
+        sender: 'quokka',
+        timestamp: new Date(),
+      }]);
+    }
+  }, [currentConversationId, session]);
 
   useEffect(() => {
     // Scroll to bottom when new messages are added
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  const loadConversations = async () => {
+    if (!session?.access_token) return;
+
+    setIsLoadingConversations(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/lawyer/conversations`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data);
+        
+        // Auto-select active conversation or first conversation
+        const activeConv = data.find((c: Conversation) => c.is_active);
+        if (activeConv) {
+          setCurrentConversationId(activeConv.id);
+        } else if (data.length > 0) {
+          setCurrentConversationId(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  };
+
+  const loadConversationMessages = async (conversationId: string) => {
+    if (!session?.access_token) return;
+
+    setIsLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/lawyer/conversations/${conversationId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const loadedMessages: Message[] = data.messages.map((msg: any) => ({
+          id: msg.id,
+          text: msg.content,
+          sender: msg.role === 'user' ? 'user' : 'quokka',
+          timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
+        }));
+        setMessages(loadedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const handleSelectConversation = async (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    setSidebarOpen(false);
+  };
+
+  const handleNewChat = async () => {
+    if (!session?.access_token) {
+      alert('Please sign in to create a conversation');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/lawyer/conversations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await loadConversations();
+        setCurrentConversationId(data.id);
+        setMessages([]);
+        setSidebarOpen(false);
+      } else {
+        throw new Error('Failed to create conversation');
+      }
+    } catch (error: any) {
+      console.error('Error creating conversation:', error);
+      alert('Failed to create conversation. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const currentConversation = conversations.find(c => c.id === currentConversationId);
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -81,6 +214,7 @@ export default function LawyerScreen() {
         },
         body: JSON.stringify({
           message: messageText,
+          conversationId: currentConversationId || undefined,
         }),
       });
 
@@ -94,6 +228,12 @@ export default function LawyerScreen() {
 
       const data = await response.json();
 
+      // Update current conversation ID if it was a new conversation
+      if (!currentConversationId) {
+        setCurrentConversationId(data.conversationId);
+        await loadConversations();
+      }
+
       // Add AI response
       const aiMessage: Message = {
         id: data.aiMessage.id || Date.now().toString(),
@@ -103,6 +243,9 @@ export default function LawyerScreen() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Refresh conversations to update titles
+      await loadConversations();
     } catch (error: any) {
       // Remove loading message
       setMessages(prev => prev.filter(msg => msg.id !== loadingMessageId));
@@ -130,59 +273,84 @@ export default function LawyerScreen() {
     >
       <ThemedView style={styles.container}>
         {/* Header with Quokka */}
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Image
-            source={quokkaImage}
-            style={styles.quokkaHeaderImage}
-            contentFit="contain"
-            accessibilityLabel="Quokka lawyer"
-          />
-          <ThemedText type="subtitle" style={styles.headerTitle}>
-            Your Quokka Lawyer
-          </ThemedText>
+        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <Pressable
+              onPress={() => setSidebarOpen(true)}
+              style={styles.menuButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <IconSymbol name="sidebar.left" size={28} color={textColor} />
+            </Pressable>
+            <Image
+              source={quokkaImage}
+              style={styles.quokkaHeaderImage}
+              contentFit="contain"
+              accessibilityLabel="Quokka lawyer"
+            />
+            <ThemedText type="subtitle" style={styles.headerTitle}>
+              {currentConversation?.title || 'New Chat'}
+            </ThemedText>
+          </View>
         </View>
 
+        {/* Sidebar */}
+        <LawyerSidebar
+          visible={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewChat={handleNewChat}
+        />
+
         {/* Messages List */}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageBubble,
-                message.sender === 'user' ? styles.userMessage : styles.quokkaMessage,
-              ]}
-            >
-              {message.sender === 'quokka' && (
-                <Image
-                  source={quokkaImage}
-                  style={styles.quokkaAvatar}
-                  contentFit="contain"
-                />
-              )}
+        {isLoadingMessages ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" />
+          </View>
+        ) : (
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={styles.messagesContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.map((message) => (
               <View
+                key={message.id}
                 style={[
-                  styles.messageContent,
-                  message.sender === 'user' && { backgroundColor: tintColor },
-                  message.sender === 'quokka' && styles.quokkaMessageContent,
+                  styles.messageBubble,
+                  message.sender === 'user' ? styles.userMessage : styles.quokkaMessage,
                 ]}
               >
-                <ThemedText
+                {message.sender === 'quokka' && (
+                  <Image
+                    source={quokkaImage}
+                    style={styles.quokkaAvatar}
+                    contentFit="contain"
+                  />
+                )}
+                <View
                   style={[
-                    styles.messageText,
-                    message.sender === 'user' && styles.userMessageText,
+                    styles.messageContent,
+                    message.sender === 'user' && { backgroundColor: tintColor },
+                    message.sender === 'quokka' && styles.quokkaMessageContent,
                   ]}
                 >
-                  {message.text}
-                </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.messageText,
+                      message.sender === 'user' && styles.userMessageText,
+                    ]}
+                  >
+                    {message.text}
+                  </ThemedText>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Input Area */}
         <View style={styles.inputContainer}>
@@ -216,21 +384,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 56,
   },
-  quokkaHeaderImage: {
+  menuButton: {
     width: 40,
     height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    zIndex: 10,
+  },
+  quokkaHeaderImage: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesContainer: {
     flex: 1,
