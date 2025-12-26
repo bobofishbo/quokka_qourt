@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, ScrollView, View, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useState, useRef, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,8 +6,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useAuth } from '@/contexts/auth-context';
+import Constants from 'expo-constants';
 
 const quokkaImage = require('@/assets/images/quokka.png');
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface Message {
   id: string;
@@ -18,6 +21,7 @@ interface Message {
 
 export default function LawyerScreen() {
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -27,6 +31,7 @@ export default function LawyerScreen() {
     },
   ]);
   const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const tintColor = useThemeColor({}, 'tint');
 
@@ -35,30 +40,86 @@ export default function LawyerScreen() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || isLoading) return;
+    if (!session?.access_token) {
+      alert('Please sign in to chat with the lawyer');
+      return;
+    }
 
-    // Add user message
+    const messageText = inputText.trim();
+    setInputText('');
+    setIsLoading(true);
+
+    // Add user message immediately (optimistic update)
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: messageText,
       sender: 'user',
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInputText('');
 
-    // Simulate quokka response (frontend only for now)
-    setTimeout(() => {
-      const quokkaResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'I understand. Let me help you with that. Can you provide more details?',
+    // Add loading message
+    const loadingMessageId = (Date.now() + 1).toString();
+    const loadingMessage: Message = {
+      id: loadingMessageId,
+      text: '...',
+      sender: 'quokka',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, loadingMessage]);
+
+    try {
+      // Call backend API
+      const response = await fetch(`${API_BASE_URL}/lawyer/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          message: messageText,
+        }),
+      });
+
+      // Remove loading message
+      setMessages(prev => prev.filter(msg => msg.id !== loadingMessageId));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to get response');
+      }
+
+      const data = await response.json();
+
+      // Add AI response
+      const aiMessage: Message = {
+        id: data.aiMessage.id || Date.now().toString(),
+        text: data.aiMessage.content,
+        sender: 'quokka',
+        timestamp: data.aiMessage.created_at ? new Date(data.aiMessage.created_at) : new Date(),
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error: any) {
+      // Remove loading message
+      setMessages(prev => prev.filter(msg => msg.id !== loadingMessageId));
+
+      // Show error message
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        text: `Sorry, I encountered an error: ${error.message || 'Please try again'}`,
         sender: 'quokka',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, quokkaResponse]);
-    }, 500);
+      setMessages(prev => [...prev, errorMessage]);
+
+      console.error('Error sending message:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -135,11 +196,15 @@ export default function LawyerScreen() {
             returnKeyType="send"
           />
           <Pressable
-            style={[styles.sendButton, { backgroundColor: tintColor }]}
+            style={[styles.sendButton, { backgroundColor: tintColor }, (isLoading || !inputText.trim()) && styles.sendButtonDisabled]}
             onPress={handleSend}
-            disabled={!inputText.trim()}
+            disabled={isLoading || !inputText.trim()}
           >
-            <ThemedText style={styles.sendButtonText}>Send</ThemedText>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <ThemedText style={styles.sendButtonText}>Send</ThemedText>
+            )}
           </Pressable>
         </View>
       </ThemedView>
@@ -233,5 +298,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
 });

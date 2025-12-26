@@ -13,6 +13,42 @@ export async function profileRoutes(app: FastifyInstance) {
    */
   app.get("/profile/me", {
     preHandler: authHook, // Apply auth hook before handler
+    schema: {
+      description: 'Get the current user\'s profile',
+      tags: ['profile'],
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            username: { type: 'string', nullable: true },
+            displayName: { type: 'string', nullable: true },
+            avatarUrl: { type: 'string', nullable: true },
+            aliasMode: { type: 'boolean', nullable: true },
+            quokkaCitizenshipLevel: { type: 'number', nullable: true },
+            quokkaStamps: { type: 'array', items: { type: 'string' } },
+            quokkaBadges: { type: 'array', items: { type: 'string' } },
+            createdAt: { type: 'string', format: 'date-time', nullable: true },
+            updatedAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
   }, async (request, reply) => {
     const userId = request.user!.id; // Safe to use ! since authHook ensures user exists
 
@@ -36,6 +72,63 @@ export async function profileRoutes(app: FastifyInstance) {
    */
   app.post("/profile/onboarding", {
     preHandler: authHook, // Apply auth hook before handler
+    schema: {
+      description: 'Create a profile for the authenticated user',
+      tags: ['profile'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['username'],
+        properties: {
+          username: {
+            type: 'string',
+            description: 'Username (minimum 3 characters)',
+            minLength: 3,
+          },
+          displayName: { type: 'string' },
+          avatarUrl: { type: 'string' },
+          aliasMode: { type: 'boolean' },
+        },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            username: { type: 'string', nullable: true },
+            displayName: { type: 'string', nullable: true },
+            avatarUrl: { type: 'string', nullable: true },
+            aliasMode: { type: 'boolean', nullable: true },
+            quokkaCitizenshipLevel: { type: 'number', nullable: true },
+            quokkaStamps: { type: 'array', items: { type: 'string' } },
+            quokkaBadges: { type: 'array', items: { type: 'string' } },
+            createdAt: { type: 'string', format: 'date-time', nullable: true },
+            updatedAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        409: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
   }, async (request, reply) => {
     const userId = request.user!.id; // Safe to use ! since authHook ensures user exists
 
@@ -80,6 +173,72 @@ export async function profileRoutes(app: FastifyInstance) {
    */
   app.patch("/profile/me", {
     preHandler: authHook, // Apply auth hook before handler
+    schema: {
+      description: 'Update the current user\'s profile',
+      tags: ['profile'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        properties: {
+          username: {
+            type: 'string',
+            description: 'Username (minimum 3 characters if provided)',
+            minLength: 3,
+          },
+          displayName: { type: 'string' },
+          avatarUrl: { type: 'string' },
+          aliasMode: { type: 'boolean' },
+          quokkaCitizenshipLevel: { type: 'number' },
+          quokkaStamps: { type: 'array', items: { type: 'string' } },
+          quokkaBadges: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            username: { type: 'string', nullable: true },
+            displayName: { type: 'string', nullable: true },
+            avatarUrl: { type: 'string', nullable: true },
+            aliasMode: { type: 'boolean', nullable: true },
+            quokkaCitizenshipLevel: { type: 'number', nullable: true },
+            quokkaStamps: { type: 'array', items: { type: 'string' } },
+            quokkaBadges: { type: 'array', items: { type: 'string' } },
+            createdAt: { type: 'string', format: 'date-time', nullable: true },
+            updatedAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        409: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
   }, async (request, reply) => {
     const userId = request.user!.id; // Safe to use ! since authHook ensures user exists
 

@@ -148,6 +148,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Log JWT token for Postman testing (temporary - remove in production)
+  useEffect(() => {
+    if (session?.access_token) {
+      console.log('\n\n========================================');
+      console.log('=== JWT TOKEN FOR POSTMAN ===');
+      console.log('========================================');
+      console.log(session.access_token);
+      console.log('========================================');
+      console.log('=== COPY THIS TOKEN ABOVE ===');
+      console.log('========================================\n\n');
+    } else {
+      console.log('No session token available. Please sign in.');
+    }
+  }, [session]);
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,

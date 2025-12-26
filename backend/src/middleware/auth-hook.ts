@@ -25,6 +25,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
   },
 });
 
+// Log Supabase URL for debugging (remove in production)
+console.log('Backend Supabase URL:', supabaseUrl);
+
 /**
  * Fastify preHandler hook that validates Supabase JWT tokens
  * and attaches user info to request.user
@@ -53,9 +56,14 @@ export async function authHook(
     } = await supabase.auth.getUser(token);
 
     if (error || !user) {
+      console.error('Token verification failed:', {
+        error: error?.message,
+        tokenLength: token.length,
+        tokenPrefix: token.substring(0, 20) + '...',
+      });
       return reply.code(401).send({
         error: 'UNAUTHORIZED',
-        message: 'Invalid or expired token',
+        message: error?.message || 'Invalid or expired token',
       });
     }
 
